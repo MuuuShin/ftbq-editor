@@ -2,6 +2,8 @@
 
 纯前端的 FTB Quests 可视化编辑器
 
+本项目基于 [jmoiron/qbedit](https://github.com/jmoiron/qbedit) 灵感而生
+
 ## 功能特性
 
 - 📖 读取和解析 `.snbt` 格式的任务章节文件
