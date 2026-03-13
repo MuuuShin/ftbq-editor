@@ -1,0 +1,171 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 深色模式支持 */
+.dark {
+  --bg-primary: #1a1a2e;
+  --bg-secondary: #16213e;
+  --text-primary: #eee;
+  --text-secondary: #ccc;
+  --border-color: #333;
+}
+
+/* React Flow 自定义样式 */
+.react-flow__node {
+  font-size: 12px;
+}
+
+/* 任务节点悬停时提升层级 - 在 React Flow 节点容器层级设置 z-index */
+.react-flow__node:has(.quest-node-icon-wrapper:hover) {
+  z-index: 9999 !important;
+}
+
+/* 备用方案：直接提升所有 React Flow 节点的 hover 层级 */
+.react-flow__node:hover {
+  z-index: 9999 !important;
+}
+
+/* 微型节点置于最底层 - 在 React Flow 节点容器层级设置负 z-index */
+.react-flow__node:has(.quest-node-icon-wrapper[data-tiny-node="true"]) {
+  z-index: -1 !important;
+}
+
+/* 箭头 marker 样式 */
+.react-flow__edge-path {
+  marker-end: url(#edge-arrow);
+}
+
+/* 隐藏 Handle - 让连线直接从节点出发 */
+.react-flow__handle {
+  opacity: 0;
+  pointer-events: auto;
+}
+
+/* 隐藏的边 - 默认半透明，鼠标悬停时显示 */
+.react-flow__edge.hidden-edge {
+  opacity: 0.25;
+  transition: opacity 0.2s ease;
+}
+
+/* 鼠标悬停在边上时显示 */
+.react-flow__edge.hidden-edge:hover {
+  opacity: 1;
+}
+
+.react-flow__node.quest-node {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.react-flow__node.quest-node .node-header {
+  padding: 8px 12px;
+  font-weight: bold;
+  border-bottom: 1px solid rgba(0,0,0,0.1);
+}
+
+.react-flow__node.quest-node .node-content {
+  padding: 8px 12px;
+}
+
+/* 网格吸附视觉反馈 */
+.react-flow__background {
+  background-color: #e5e7eb;
+}
+
+/* 任务图标样式 */
+.quest-icon {
+  width: 40px;
+  height: 40px;
+  image-rendering: pixelated;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+/* 任务节点图标包装器 - 支持动态大小 */
+.quest-node-icon-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 任务节点悬停时提升层级 - 使用 !important 确保生效 */
+/* 只提升节点容器，悬浮框有自己的固定 z-index: 9999 */
+.quest-node-icon-wrapper:hover {
+  z-index: 9999 !important;
+}
+
+/* 任务形状 - 使用 clip-path 实现不同形状 */
+.quest-shape-circle {
+  clip-path: circle(50% at 50% 50%);
+}
+
+/* 齿轮形状 - 圆形主体加外圈 8 个均匀分布的齿 */
+.quest-shape-gear {
+  clip-path: polygon(
+    50% 3%, 58% 3%, 63% 8%, 72% 5%, 78% 11%, 75% 20%, 82% 26%, 91% 22%, 97% 28%,
+    93% 37%, 100% 44%, 100% 56%, 93% 63%, 97% 72%, 91% 78%, 82% 74%, 75% 80%,
+    78% 89%, 72% 95%, 63% 92%, 58% 97%, 50% 100%, 42% 97%, 37% 92%, 28% 95%,
+    22% 89%, 25% 80%, 18% 74%, 9% 78%, 3% 72%, 7% 63%, 0% 56%, 0% 44%,
+    7% 37%, 3% 28%, 9% 22%, 18% 26%, 25% 20%, 22% 11%, 28% 5%, 37% 8%, 42% 3%
+  ) !important;
+}
+
+/* 齿轮形状的子元素也需要应用相同的 clip-path */
+.quest-shape-gear > * {
+  clip-path: polygon(
+    50% 3%, 58% 3%, 63% 8%, 72% 5%, 78% 11%, 75% 20%, 82% 26%, 91% 22%, 97% 28%,
+    93% 37%, 100% 44%, 100% 56%, 93% 63%, 97% 72%, 91% 78%, 82% 74%, 75% 80%,
+    78% 89%, 72% 95%, 63% 92%, 58% 97%, 50% 100%, 42% 97%, 37% 92%, 28% 95%,
+    22% 89%, 25% 80%, 18% 74%, 9% 78%, 3% 72%, 7% 63%, 0% 56%, 0% 44%,
+    7% 37%, 3% 28%, 9% 22%, 18% 26%, 25% 20%, 22% 11%, 28% 5%, 37% 8%, 42% 3%
+  );
+}
+
+.quest-shape-hexagon {
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+}
+
+.quest-shape-hexagon > * {
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+}
+
+.quest-shape-diamond {
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+}
+
+.quest-shape-diamond > * {
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+}
+
+.quest-shape-pentagon {
+  clip-path: polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%);
+}
+
+.quest-shape-pentagon > * {
+  clip-path: polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%);
+}
+
+.quest-shape-octagon {
+  clip-path: polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%);
+}
+
+.quest-shape-octagon > * {
+  clip-path: polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%);
+}
+
+.quest-shape-none {
+  /* 无特殊形状，使用默认矩形 */
+}
+
+/* 编辑面板 - 样式在组件中定义 */
+.editor-panel {
+  /* 样式由 QuestEditor 组件内联 */
+}
+
+/* 工具栏 */
+.toolbar {
+  @apply bg-white dark:bg-gray-900 border-b border-gray-300 dark:border-gray-600 px-4 py-2 flex items-center gap-2;
+}
