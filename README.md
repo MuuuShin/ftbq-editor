@@ -73,7 +73,6 @@ ftbq-editor/
 FTB Quests 的 SNBT 格式与标准 SNBT 有一些区别：
 
 - **字段分隔**: 使用换行分隔，不使用逗号
-- **换行符**: 使用 CRLF (`\r\n`)
 - **键名**: 通常不使用引号
 - **数值类型**: 支持 `1.5d` (double), `1b` (byte), `1s` (short) 等后缀
 
