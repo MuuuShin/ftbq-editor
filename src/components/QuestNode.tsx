@@ -1,8 +1,11 @@
-import { memo, type JSX, useState } from 'react';
+import { memo, type JSX, useState, useEffect } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import { QuestNodeData } from '../types';
 import { useItemAtlas } from '../context/ItemAtlasContext';
 import { parseItemId } from '../utils/itemAtlas';
+import { getShapeAssets } from '../utils/shapeAssets';
+import themeColors from '../utils/themeColors';
+import PixelImage from './PixelImage';
 
 interface QuestNodeProps {
   id: string;
@@ -11,21 +14,10 @@ interface QuestNodeProps {
   type?: string;
 }
 
-// 形状到贴图路径的映射
-const shapeToTexture: Record<string, string> = {
-  circle: '/shapes/circle/shape.png',
-  gear: '/shapes/gear/shape.png',
-  hexagon: '/shapes/hexagon/shape.png',
-  diamond: '/shapes/diamond/shape.png',
-  pentagon: '/shapes/pentagon/shape.png',
-  octagon: '/shapes/octagon/shape.png',
-  none: '',
-};
-
 /**
  * 任务节点组件
  * 默认只显示图标，鼠标悬停时显示标题和副标题
- * 节点位置为中心点定位
+ * 节点位置由 QuestEditorCanvas 从游戏中心坐标转换为左上角坐标
  */
 function QuestNode({ data, id, selected }: QuestNodeProps): JSX.Element {
   const { quest } = data;
@@ -33,17 +25,35 @@ function QuestNode({ data, id, selected }: QuestNodeProps): JSX.Element {
   const [isHovered, setIsHovered] = useState(false);
 
   const shape = quest.shape || 'circle';
-  const shapeTexture = shapeToTexture[shape] || shapeToTexture['circle'];
+  // shape assets: background, mask(shape), outline
+  const { background: backgroundUrl, mask: shapeMaskUrl, outline: outlineUrl } = getShapeAssets(shape);
   const size = quest.size || 1;
+
+  // Inject minimal CSS for pulsing selection highlight once
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    if (document.getElementById('ftb-quest-node-styles')) return;
+    const s = document.createElement('style');
+    s.id = 'ftb-quest-node-styles';
+    s.innerHTML = `
+      @keyframes ftb-pulse { 0% { opacity: 0.55; } 50% { opacity: 0.95; } 100% { opacity: 0.55; } }
+      .ftb-pulse { animation: ftb-pulse 1.6s ease-in-out infinite; }
+    `;
+    document.head.appendChild(s);
+  }, []);
+
+  // Use FTB Quests theme colors centrally (outline uses locked color by default here)
+  // You can adjust to use other themeColors.* variants later.
+  const outlineColor = themeColors.quest_locked_color;
+
+  // 根据 size 计算节点直径（游戏单位转像素，1 单位 = 32px）
+  const nodeDiameter = size * 32;
+  // 计算像素精确的内外尺寸，避免使用 CSS calc 导致的亚像素差异
+  const outerSizePx = Math.round(nodeDiameter); // 保证整数像素
 
   // 如果节点有隐藏连线属性，添加 data 属性
   const hasHideDependencyLines = !!quest.hide_dependency_lines;
   const hasHideDependentLines = !!quest.hide_dependent_lines;
-
-  // 根据 size 计算节点直径（游戏单位转像素，1 单位 = 32px）
-  // size 即为节点直径（从上端点到下端点的距离）
-  const nodeDiameter = size * 32 * 0.9;
-  const nodeRadius = nodeDiameter / 2;
 
   // 获取物品的 item 或 dimension 字段
   const getItemOrDimension = (task: any) => {
@@ -100,12 +110,35 @@ function QuestNode({ data, id, selected }: QuestNodeProps): JSX.Element {
 
   // 获取图标：优先级 quest.icon > itemId 对应的 jar 包图标
   const getIconUrl = () => {
-    // 1. 优先使用 quest.icon
-    if (quest.icon) {
-      return quest.icon;
+    const rawIcon = (quest as any).icon;
+    // 如果 quest.icon 存在并且看起来是 URL/path，则直接返回
+    if (rawIcon) {
+      if (typeof rawIcon === 'string') {
+        const s = rawIcon;
+        if (s.startsWith('data:') || s.startsWith('http://') || s.startsWith('https://') || s.startsWith('/')) {
+          return s;
+        }
+
+        // 否则把字符串当成物品 id，尝试解析并从 itemMap 找到贴图
+        const parsed = parseItemId(s);
+        if (parsed && itemMap[parsed]) return itemMap[parsed];
+
+        // 无法解析为可用 URL
+        return undefined;
+      }
+
+      // 如果 quest.icon 是对象（可能含 id 字段），尝试提取 id 并解析
+      if (typeof rawIcon === 'object') {
+        const qi: any = rawIcon as any;
+        const iconId = qi?.id || qi?.Item || undefined;
+        if (iconId && typeof iconId === 'string') {
+          const parsed = parseItemId(iconId);
+          if (parsed && itemMap[parsed]) return itemMap[parsed];
+        }
+      }
     }
 
-    // 2. 从第一个任务的 item/dimension 获取图标
+    // 退回到第一个任务的 item/dimension（旧逻辑）
     const firstTask = quest.tasks && quest.tasks.length > 0 ? quest.tasks[0] : undefined;
     const itemOrDim = firstTask ? getItemOrDimension(firstTask) : undefined;
     if (itemOrDim) {
@@ -201,15 +234,15 @@ function QuestNode({ data, id, selected }: QuestNodeProps): JSX.Element {
       />
 
       {/* 图标容器 - 按形状渲染，带 group 类用于悬停效果 */}
-      {/* 使用负 margin 实现中心定位（React Flow 位置点是节点左上角）*/}
+      {/* QuestEditorCanvas 已将游戏坐标（中心点）转换为左上角坐标，此处直接渲染即可 */}
       {/* 微型节点置于最底层（z-index: -1），确保在所有正常节点下方 */}
       <div
         className="quest-node-icon-wrapper relative group cursor-pointer"
         style={{
-          width: nodeDiameter,
-          height: nodeDiameter,
-          marginLeft: -nodeRadius,
-          marginTop: -nodeRadius,
+          width: outerSizePx,
+          height: outerSizePx,
+          // React Flow position is top-left; do not translate here so the wrapper's top-left
+          // matches the node.position. Inner children are centered using left/top 50%.
         }}
         data-node-id={id}
         data-tiny-node={isTinyNode}
@@ -218,57 +251,154 @@ function QuestNode({ data, id, selected }: QuestNodeProps): JSX.Element {
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        {/* 形状容器 - 使用 FTBQ 官方贴图作为遮罩，内外圈完美对齐 */}
-        <div className="w-full h-full relative">
-          {/* 边框层 - 深灰色背景，使用 shape 贴图作为遮罩 */}
+        <div className="relative" style={{ width: outerSizePx, height: outerSizePx }}>
+          {/* 1) Shape fill - match FTB: draw shape filled with dark gray first */}
           <div
-            className="absolute inset-0 transition-opacity duration-200"
+            className="absolute transition-opacity duration-200"
             style={{
-              backgroundColor: 'rgba(64, 64, 64, 0.9)',
-              opacity: opacity,
-              maskImage: `url(${shapeTexture})`,
+              width: `${outerSizePx}px`,
+              height: `${outerSizePx}px`,
+              left: '50%',
+              top: '50%',
+              transform: 'translate(-50%, -50%)',
+              backgroundColor: '#2f2f2f', // DARK_GRAY-like (restore previous darker fill)
+              // Use shape PNG as mask to color the interior
+              maskImage: `url(${shapeMaskUrl})`,
               maskSize: 'contain',
               maskPosition: 'center',
               maskRepeat: 'no-repeat',
-              WebkitMaskImage: `url(${shapeTexture})`,
+              WebkitMaskImage: `url(${shapeMaskUrl})`,
               WebkitMaskSize: 'contain',
               WebkitMaskPosition: 'center',
               WebkitMaskRepeat: 'no-repeat',
+              opacity: opacity,
+              pointerEvents: 'none',
             }}
           />
-          {/* 内容层 - 浅灰色背景（比边框层小，通过 inset 留出边框空间） */}
+
+          {/* 2) Background texture - semi-transparent white tint over background (alpha 150/255 ≈ 0.588) */}
           <div
-            className="absolute inset-[2px] transition-opacity duration-200"
+            className={`absolute transition-opacity duration-200 ${selected ? 'ftb-pulse' : ''}`}
             style={{
-              backgroundColor: 'rgba(180, 180, 180, 0.7)',
-              opacity: opacity,
-              maskImage: `url(${shapeTexture})`,
-              maskSize: 'contain',
-              maskPosition: 'center',
-              maskRepeat: 'no-repeat',
-              WebkitMaskImage: `url(${shapeTexture})`,
-              WebkitMaskSize: 'contain',
-              WebkitMaskPosition: 'center',
-              WebkitMaskRepeat: 'no-repeat',
+              width: `${outerSizePx}px`,
+              height: `${outerSizePx}px`,
+              left: '50%',
+              top: '50%',
+              transform: 'translate(-50%, -50%)',
+              backgroundImage: `url(${backgroundUrl})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              backgroundRepeat: 'no-repeat',
+              // restore previous semi-transparent white tint used earlier (approx alpha 150/255 ≈ 0.588)
+              opacity: 0.588 * opacity,
+              boxSizing: 'border-box',
+              pointerEvents: 'none',
+            }}
+          />
+
+          {/* 3) Content icon - drawn in center with FTB-like scale: (2/3)*w*iconScale */}
+          <div
+            style={{
+              position: 'absolute',
+              left: '50%',
+              top: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: `${Math.round(outerSizePx * (2 / 3) * (quest.iconScale || 1))}px`,
+              height: `${Math.round(outerSizePx * (2 / 3) * (quest.iconScale || 1))}px`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              pointerEvents: 'none',
             }}
           >
-            {/* 任务图标 - 渲染在形状上面 */}
+            {/* 任务图标 - 渲染在形状上面，使用 PixelImage 组件支持像素化渲染和动图 */}
             {iconUrl ? (
-              <img
+              <PixelImage
                 src={iconUrl}
                 alt="quest icon"
-                className="w-full h-full object-cover p-1"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = 'none';
-                }}
+                size="100%"
+                className="object-cover w-full h-full"
+                onError={() => {}}
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-white text-xs font-bold">
-                ?
-              </div>
+              <div className="w-full h-full flex items-center justify-center text-white text-xs font-bold">?</div>
             )}
           </div>
         </div>
+
+        {/* 4) Hover / locked overlays: match FTB behavior */}
+        {/* If not startable, render darkened shape */}
+        {(!(quest.canStart ?? true) || quest.locked) && (
+          <div
+            style={{
+              position: 'absolute',
+              left: '50%',
+              top: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: `${outerSizePx}px`,
+              height: `${outerSizePx}px`,
+              // use FTB locked theme color as the overlay tint; combine with node opacity
+              backgroundColor: themeColors.quest_locked_color,
+              opacity: 0.39 * opacity,
+              maskImage: `url(${shapeMaskUrl})`,
+              WebkitMaskImage: `url(${shapeMaskUrl})`,
+              maskSize: 'contain',
+              WebkitMaskSize: 'contain',
+              maskPosition: 'center',
+              WebkitMaskPosition: 'center',
+              maskRepeat: 'no-repeat',
+              WebkitMaskRepeat: 'no-repeat',
+              pointerEvents: 'none',
+            }}
+          />
+        )}
+
+        {/* Hover highlight: white overlay inside shape */}
+        {isHovered && (
+          <div
+            style={{
+              position: 'absolute',
+              left: '50%',
+              top: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: `${outerSizePx}px`,
+              height: `${outerSizePx}px`,
+              backgroundColor: 'rgba(255,255,255,0.39)',
+              maskImage: `url(${shapeMaskUrl})`,
+              WebkitMaskImage: `url(${shapeMaskUrl})`,
+              maskSize: 'contain',
+              WebkitMaskSize: 'contain',
+              maskPosition: 'center',
+              WebkitMaskPosition: 'center',
+              maskRepeat: 'no-repeat',
+              WebkitMaskRepeat: 'no-repeat',
+              pointerEvents: 'none',
+            }}
+          />
+        )}
+
+        {/* 5) Outline - colored */}
+        <div
+          style={{
+            position: 'absolute',
+            left: '50%',
+            top: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: `${outerSizePx}px`,
+            height: `${outerSizePx}px`,
+            backgroundColor: outlineColor,
+            maskImage: `url(${outlineUrl})`,
+            WebkitMaskImage: `url(${outlineUrl})`,
+            maskSize: 'contain',
+            WebkitMaskSize: 'contain',
+            maskPosition: 'center',
+            WebkitMaskPosition: 'center',
+            maskRepeat: 'no-repeat',
+            WebkitMaskRepeat: 'no-repeat',
+            opacity: opacity,
+            pointerEvents: 'none',
+          }}
+        />
 
         {/* 悬停提示框 - 显示标题、副标题和隐藏状态（微型节点不显示）*/}
         {!isTinyNode && (

@@ -1,4 +1,4 @@
-import { useCallback, useRef, useMemo, useEffect, useState } from 'react';
+import {useCallback, useRef, useMemo, useEffect, useState} from 'react';
 import {
   ReactFlow,
   Node,
@@ -18,18 +18,18 @@ import {
   useReactFlow,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { Quest } from '../types';
+import {Quest} from '../types';
 import QuestNode from './QuestNode';
 import CustomEdge from './CustomEdge';
-import { useItemAtlas } from '../context/ItemAtlasContext';
-import { parseItemId } from '../utils/itemAtlas';
+import {useItemAtlas} from '../context/ItemAtlasContext';
+import {parseItemId} from '../utils/itemAtlas';
 
 // 原点标记节点组件
 function OriginMarkerNode() {
   return (
     <div
       className="w-3 h-3 bg-red-500 rounded-full border-2 border-white shadow-lg pointer-events-none"
-      style={{ transform: 'translate(-50%, -50%)' }}
+      style={{transform: 'translate(-50%, -50%)'}}
       title="原点 (0,0)"
     />
   );
@@ -66,13 +66,43 @@ interface QuestEditorCanvasProps {
  * 坐标系统：中心点为 (0,0)，与游戏内 FTBQ 坐标一致
  */
 function QuestEditorCanvas({
-  quests,
-  onQuestSelect,
-  onPositionChange,
-}: QuestEditorCanvasProps) {
+                             quests,
+                             onQuestSelect,
+                             onPositionChange,
+                           }: QuestEditorCanvasProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
-  const { itemMap } = useItemAtlas();
-  const { screenToFlowPosition, fitView } = useReactFlow();
+  const {itemMap} = useItemAtlas();
+  const {screenToFlowPosition, fitView} = useReactFlow();
+
+  // 统一的 fitView 参数对象，供代码中所有 fitView 调用共享
+  const FIT_VIEW_OPTIONS = useMemo(() => ({
+    padding: 0.1,
+    duration: 200,
+    minZoom: 0.5,
+    maxZoom: 2,
+  }), []);
+
+  // Ctrl / Cmd pressed state: when true, disable grid snapping and keep high-precision positions
+  const [ctrlPressed, setCtrlPressed] = useState(false);
+
+  // keyboard listeners to toggle ctrlPressed (supports Mac Cmd via metaKey)
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey) setCtrlPressed(true);
+    };
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (!e.ctrlKey && !e.metaKey) setCtrlPressed(false);
+    };
+    const onBlur = () => setCtrlPressed(false);
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
+    window.addEventListener('blur', onBlur);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keyup', onKeyUp);
+      window.removeEventListener('blur', onBlur);
+    };
+  }, []);
 
   // 当前鼠标位置（游戏坐标）
   const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
@@ -130,24 +160,25 @@ function QuestEditorCanvas({
     return undefined;
   }, [itemMap]);
 
-  // 初始化节点 - 使用游戏坐标作为节点中心坐标
+  // 初始化节点 - 使用中心点坐标（position 表示元素中心）
   const initialNodes: Node[] = useMemo(() => quests.map((quest) => {
     const size = quest.size || 1;
-    const nodeRadius = (size * 32) / 2;
+    const nodeDiameter = size * 32;
+    const nodeRadius = nodeDiameter / 2;
     const iconUrl = getIconUrl(quest.icon);
     return {
       id: quest.id,
       type: 'questNode',
       position: {
-        // 游戏坐标是节点中心
-        x: (quest.x || 0) * GAME_TO_PIXEL_SCALE,
-        y: (quest.y || 0) * GAME_TO_PIXEL_SCALE
+        // React Flow expects position = top-left; store top-left = center_px - radius
+        x: (quest.x || 0) * GAME_TO_PIXEL_SCALE - nodeRadius,
+        y: (quest.y || 0) * GAME_TO_PIXEL_SCALE - nodeRadius,
       },
       data: {
         quest,
-        label: quest.title, // 可能为空，由 QuestNode 处理
+        label: quest.title,
         icon: iconUrl,
-        nodeRadius, // 传递半径用于边计算
+        nodeRadius,
       },
     };
   }), [quests, itemMap, getIconUrl]);
@@ -169,7 +200,7 @@ function QuestEditorCanvas({
           target: quest.id,
           type: 'custom',
           markerEnd: 'edge-arrow',
-          style: { stroke: '#6366f1', strokeWidth: 2 },
+          style: {stroke: '#6366f1', strokeWidth: 2},
           className: isHidden ? 'hidden-edge' : '',
           // 直接传入节点中心坐标和半径
           data: {
@@ -202,17 +233,20 @@ function QuestEditorCanvas({
     // 更新引用
     prevQuestsRef.current = quests;
 
-    // 创建任务节点
+    // 创建任务节点 - 位置是节点左上角（游戏坐标 × 缩放 - 半径）
+    // 这样 fitView 能正确计算边界
     const questNodes: Node[] = quests.map((quest) => {
       const size = quest.size || 1;
-      const nodeRadius = (size * 32) / 2;
+      const nodeDiameter = size * 32; // 与 QuestNode.tsx 保持一致
+      const nodeRadius = nodeDiameter / 2;
       const iconUrl = getIconUrl(quest.icon);
       return {
         id: quest.id,
         type: 'questNode',
         position: {
-          x: (quest.x || 0) * GAME_TO_PIXEL_SCALE,
-          y: (quest.y || 0) * GAME_TO_PIXEL_SCALE
+          // React Flow position is top-left; convert from game center coordinate to top-left
+          x: (quest.x || 0) * GAME_TO_PIXEL_SCALE - nodeRadius,
+          y: (quest.y || 0) * GAME_TO_PIXEL_SCALE - nodeRadius,
         },
         data: {
           quest,
@@ -227,7 +261,7 @@ function QuestEditorCanvas({
     const originNode: Node = {
       id: '__origin_marker__',
       type: 'originMarker',
-      position: { x: 0, y: 0 },
+      position: {x: 0, y: 0},
       data: {},
       draggable: false,
       selectable: false,
@@ -249,9 +283,10 @@ function QuestEditorCanvas({
           target: quest.id,
           type: 'custom',
           markerEnd: 'edge-arrow',
-          style: { stroke: '#6366f1', strokeWidth: 2 },
+          style: {stroke: '#6366f1', strokeWidth: 2},
           className: isHidden ? 'hidden-edge' : '',
           data: {
+            // 使用节点中心点坐标（左上角 + 半径）
             sourceX: (depQuest?.x || 0) * GAME_TO_PIXEL_SCALE,
             sourceY: (depQuest?.y || 0) * GAME_TO_PIXEL_SCALE,
             targetX: (quest.x || 0) * GAME_TO_PIXEL_SCALE,
@@ -267,46 +302,74 @@ function QuestEditorCanvas({
 
     // 只在章节切换时调整视图
     if (isChapterSwitch && quests.length > 0) {
-      // 计算所有任务的最左、最右、最上、最下位置
-      let minX = Infinity;
-      let maxX = -Infinity;
-      let minY = Infinity;
-      let maxY = -Infinity;
-
-      quests.forEach((quest) => {
-        const x = (quest.x || 0) * GAME_TO_PIXEL_SCALE;
-        const y = (quest.y || 0) * GAME_TO_PIXEL_SCALE;
-        const size = quest.size || 1;
-        const nodeRadius = (size * 32) / 2;
-
-        // 考虑节点大小，计算边界（节点边缘而非中心）
-        minX = Math.min(minX, x - nodeRadius);
-        maxX = Math.max(maxX, x + nodeRadius);
-        minY = Math.min(minY, y - nodeRadius);
-        maxY = Math.max(maxY, y + nodeRadius);
-      });
-
       // 使用 fitView 自动调整视图以适应所有节点
       requestAnimationFrame(() => {
-        fitView({
-          padding: 0.2,
-          duration: 300,
-        });
+        fitView(FIT_VIEW_OPTIONS);
       });
     }
   }, [quests, setNodes, setEdges, getIconUrl, fitView]);
 
-  // 处理节点拖动结束 - 将像素坐标转换回游戏坐标
+  // 处理节点拖动结束 - node.position 现在为中心点（像素）
   const handleNodeDragStop = useCallback(
     (_: React.MouseEvent, node: Node) => {
-      const { x, y } = node.position;
-      // 四舍五入到最近的 0.5 单位
-      const gameX = Math.round(x / GAME_TO_PIXEL_SCALE * 2) / 2;
-      const gameY = Math.round(y / GAME_TO_PIXEL_SCALE * 2) / 2;
-      onPositionChange(node.id, gameX, gameY);
+      // node.position is top-left (pixels). Convert to center pixels by adding radius
+      const nodeRadius = (node.data as any)?.nodeRadius ?? (((node.data as any)?.quest?.size || 1) * GAME_TO_PIXEL_SCALE / 2);
+      const centerX = node.position.x + nodeRadius;
+      const centerY = node.position.y + nodeRadius;
+
+      // pixel grid step (e.g., 16 px for 0.5 game unit)
+      const gridPx = SNAP_GRID[0];
+
+      if (ctrlPressed) {
+        // 自由模式：保留小数点后 4 位精度（游戏坐标）
+        const gameX = Math.round((centerX / GAME_TO_PIXEL_SCALE) * 10000) / 10000;
+        const gameY = Math.round((centerY / GAME_TO_PIXEL_SCALE) * 10000) / 10000;
+        onPositionChange(node.id, gameX, gameY);
+      } else {
+        // 网格模式：以像素为单位进行对齐，避免半径为小数导致的偏移
+        const snappedCenterX = Math.round(centerX / gridPx) * gridPx;
+        const snappedCenterY = Math.round(centerY / gridPx) * gridPx;
+        const gameX = Math.round((snappedCenterX / GAME_TO_PIXEL_SCALE) * 10000) / 10000;
+        const gameY = Math.round((snappedCenterY / GAME_TO_PIXEL_SCALE) * 10000) / 10000;
+        onPositionChange(node.id, gameX, gameY);
+      }
     },
-    [onPositionChange]
+    [onPositionChange, ctrlPressed]
   );
+
+  // 处理节点拖动时（实时），我们需要确保拖动时节点的中心能够吸附到网格
+  // 这样当节点半径不是整数时，拖动视觉上也会与网格对齐。
+  const handleNodeDrag = useCallback((_: React.MouseEvent, node: Node) => {
+    // 如果按住 Ctrl，则不进行网格吸附（自由拖动）
+    setNodes((nds) => nds.map((n) => {
+      if (n.id !== node.id) return n;
+      const nodeRadius = (n.data as any)?.nodeRadius ?? (((n.data as any)?.quest?.size || 1) * GAME_TO_PIXEL_SCALE / 2);
+      // node.position 在此时为 top-left（像素）
+      const centerX = node.position.x + nodeRadius;
+      const centerY = node.position.y + nodeRadius;
+
+      // pixel grid step
+      const gridPx = SNAP_GRID[0];
+
+      let snappedCenterX = centerX;
+      let snappedCenterY = centerY;
+      if (!ctrlPressed) {
+        snappedCenterX = Math.round(centerX / gridPx) * gridPx;
+        snappedCenterY = Math.round(centerY / gridPx) * gridPx;
+      }
+
+      // compute new top-left and round to avoid float drift
+      const newX = Number((snappedCenterX - nodeRadius).toFixed(4));
+      const newY = Number((snappedCenterY - nodeRadius).toFixed(4));
+
+      // 避免无谓的 setNodes 引发 rerender
+      if (Math.abs(newX - n.position.x) < 0.0001 && Math.abs(newY - n.position.y) < 0.0001) return n;
+      return {
+        ...n,
+        position: {x: newX, y: newY},
+      } as Node;
+    }));
+  }, [ctrlPressed, setNodes]);
 
   // 当节点位置变化或 hover 状态变化时，更新边的坐标和样式
   useEffect(() => {
@@ -323,11 +386,11 @@ function QuestEditorCanvas({
           const sourceRadius = (sourceQuest?.size || 1) * 32 / 2;
           const targetRadius = (targetQuest?.size || 1) * 32 / 2;
 
-          // 节点位置已经是中心坐标
-          const sourceCenterX = sourceNode.position.x;
-          const sourceCenterY = sourceNode.position.y;
-          const targetCenterX = targetNode.position.x;
-          const targetCenterY = targetNode.position.y;
+          // node.position is top-left (pixels) — compute center by adding radius
+          const sourceCenterX = sourceNode.position.x + sourceRadius;
+          const sourceCenterY = sourceNode.position.y + sourceRadius;
+          const targetCenterX = targetNode.position.x + targetRadius;
+          const targetCenterY = targetNode.position.y + targetRadius;
 
           // 判断是否应该显示隐藏的边（悬停时显示）
           const shouldShowHidden = hoveredNodeId && (
@@ -420,7 +483,7 @@ function QuestEditorCanvas({
         ...params,
         type: 'custom',
         markerEnd: 'edge-arrow',
-        style: { stroke: '#6366f1', strokeWidth: 2 },
+        style: {stroke: '#6366f1', strokeWidth: 2},
       }, eds));
     },
     [setEdges]
@@ -442,37 +505,46 @@ function QuestEditorCanvas({
         onMouseLeave={handleMouseLeave}
         nodeTypes={extendedNodeTypes}
         edgeTypes={edgeTypes}
-        snapToGrid={true}
+        // 我们使用自定义的拖动吸附逻辑（中心点对齐），因此禁用 React Flow 内置 snapToGrid
+        snapToGrid={false}
         snapGrid={SNAP_GRID}
+        minZoom={0.1}
+        maxZoom={4}
         defaultEdgeOptions={{
           type: 'custom',
           markerEnd: 'edge-arrow',
         }}
+        onNodeDrag={handleNodeDrag}
         connectionLineType={ConnectionLineType.Straight}
         className="bg-gray-400 dark:bg-gray-700"
       >
-        <Controls className="bg-white dark:bg-gray-600 border border-gray-500 dark:border-gray-500 rounded shadow" />
+        <Controls
+          className="bg-white dark:bg-gray-600 border border-gray-500 dark:border-gray-500 rounded shadow"
+          style={{bottom: 50, left: 10}}
+          fitViewOptions={FIT_VIEW_OPTIONS}
+        />
         <Background
           variant={BackgroundVariant.Dots}
           gap={16}
           size={1}
+          // restored original light-dot color
           color="#4b5563"
         />
 
-        {/* 工具信息面板 */}
-        <Panel position="top-left" className="bg-white/80 dark:bg-gray-800/80 p-2 rounded shadow text-xs">
+        {/* 工具信息面板 - 右上角 */}
+        <Panel position="top-right" className="bg-white/80 dark:bg-gray-800/80 p-2 rounded shadow text-xs m-2">
           <div className="text-gray-700 dark:text-gray-300">
             <p>🖱️ 左键点击节点 - 查看/编辑任务</p>
             <p>🖱️ 拖拽节点 - 移动位置 (吸附 0.5 单位网格)</p>
-            <p>🖱️ 拖拽连线 - 创建依赖关系</p>
             <p>🔍 滚轮 - 缩放视图</p>
-            <p className="mt-1 text-gray-500">📍 坐标：游戏内坐标，中心点 (0,0)</p>
           </div>
         </Panel>
 
         {/* 鼠标坐标显示 - 左下角 */}
-        <Panel position="bottom-left" className="bg-gray-900/90 text-white px-3 py-2 rounded shadow-lg text-sm font-mono">
-          <span className="text-green-400">📍</span> X: {mousePos?.x.toFixed(1) ?? '---'} | Y: {mousePos?.y.toFixed(1) ?? '---'}
+        <Panel position="bottom-left"
+               className="bg-gray-900/90 text-white px-3 py-2 rounded shadow-lg text-sm font-mono">
+          <span className="text-green-400">📍</span> X: {mousePos?.x.toFixed(1) ?? '---'} |
+          Y: {mousePos?.y.toFixed(1) ?? '---'}
         </Panel>
       </ReactFlow>
     </div>

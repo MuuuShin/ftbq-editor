@@ -1,11 +1,13 @@
 import { useRef, useState } from 'react';
 import { useItemAtlas } from '../context/ItemAtlasContext';
 
-type ImportType = 'jar' | 'texture' | 'json';
+export interface ItemAtlasUploaderProps {
+  onShowToast?: (message: string, type: 'success' | 'error' | 'info' | 'warning') => void;
+}
 
-export default function ItemAtlasUploader() {
-  const { loadJarFiles, isLoading, progress, itemMap, itemNames, clearAtlas } = useItemAtlas();
-  const [importType, setImportType] = useState<ImportType>('jar');
+export default function ItemAtlasUploader({ onShowToast }: ItemAtlasUploaderProps) {
+  const { loadJarFiles, isLoading, itemMap, itemNames, clearAtlas } = useItemAtlas();
+  const [showDropdown, setShowDropdown] = useState(false);
   const jarInputRef = useRef<HTMLInputElement>(null);
   const textureInputRef = useRef<HTMLInputElement>(null);
   const jsonInputRef = useRef<HTMLInputElement>(null);
@@ -13,34 +15,102 @@ export default function ItemAtlasUploader() {
   const handleJarFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (files && files.length > 0) {
-      await loadJarFiles(Array.from(files));
+      try {
+        const result = await loadJarFiles(Array.from(files));
+
+        // 构建详细的成功消息
+        const messages: string[] = [];
+
+        if (result.successCount > 0) {
+          messages.push(`成功 ${result.successCount} 个文件`);
+        }
+        if (result.addedItems > 0 || result.addedNames > 0) {
+          messages.push(`新增 ${result.addedItems} 个贴图、${result.addedNames} 个名称`);
+        }
+
+        // 警告信息
+        if (result.duplicateCount > 0) {
+          messages.push(`重复 ${result.duplicateCount} 个`);
+        }
+        if (result.invalidCount > 0) {
+          messages.push(`无效 ${result.invalidCount} 个`);
+        }
+        if (result.emptyCount > 0) {
+          messages.push(`无数据 ${result.emptyCount} 个`);
+        }
+
+        if (result.successCount > 0) {
+          onShowToast?.(messages.join('，'), 'success');
+        } else if (result.invalidCount > 0 && result.totalFiles === result.invalidCount) {
+          // 全部失败
+          onShowToast?.(`全部 ${result.totalFiles} 个文件导入失败，请检查文件格式`, 'error');
+        } else if (result.emptyCount > 0 && result.totalFiles === result.emptyCount) {
+          // 全部为空数据
+          onShowToast?.(`导入的 JAR 文件中没有找到物品贴图或名称数据`, 'warning');
+        } else if (result.duplicateCount > 0 && result.totalFiles === result.duplicateCount) {
+          // 全部重复
+          onShowToast?.(`这些文件之前已经导入过了`, 'info');
+        }
+      } catch (error) {
+        onShowToast?.(`加载失败：${error}`, 'error');
+      }
     }
+    setShowDropdown(false);
   };
 
   const handleTextureFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (files && files.length > 0) {
-      // TODO: 处理贴图文件夹导入
-      alert('贴图文件夹导入功能开发中...');
+      try {
+        const result = await loadJarFiles(Array.from(files));
+
+        // 构建详细的成功消息
+        const messages: string[] = [];
+
+        if (result.successCount > 0) {
+          messages.push(`成功 ${result.successCount} 个文件`);
+        }
+        if (result.addedItems > 0 || result.addedNames > 0) {
+          messages.push(`新增 ${result.addedItems} 个贴图、${result.addedNames} 个名称`);
+        }
+
+        // 警告信息
+        if (result.duplicateCount > 0) {
+          messages.push(`重复 ${result.duplicateCount} 个`);
+        }
+        if (result.invalidCount > 0) {
+          messages.push(`无效 ${result.invalidCount} 个`);
+        }
+        if (result.emptyCount > 0) {
+          messages.push(`无数据 ${result.emptyCount} 个`);
+        }
+
+        if (result.successCount > 0) {
+          onShowToast?.(messages.join('，'), 'success');
+        } else if (result.invalidCount > 0 && result.totalFiles === result.invalidCount) {
+          // 全部失败
+          onShowToast?.(`全部 ${result.totalFiles} 个文件导入失败，请检查文件格式`, 'error');
+        } else if (result.emptyCount > 0 && result.totalFiles === result.emptyCount) {
+          // 全部为空数据
+          onShowToast?.(`导入的 JAR 文件中没有找到物品贴图或名称数据`, 'warning');
+        } else if (result.duplicateCount > 0 && result.totalFiles === result.duplicateCount) {
+          // 全部重复
+          onShowToast?.(`这些文件之前已经导入过了`, 'info');
+        }
+      } catch (error) {
+        onShowToast?.(`加载失败：${error}`, 'error');
+      }
     }
+    setShowDropdown(false);
   };
 
   const handleJsonFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (files && files.length > 0) {
       // TODO: 处理 JSON 文件导入
-      alert('JSON 文件导入功能开发中...');
+      onShowToast?.('JSON 文件导入功能开发中...', 'warning');
     }
-  };
-
-  const handleClick = () => {
-    if (importType === 'jar') {
-      jarInputRef.current?.click();
-    } else if (importType === 'texture') {
-      textureInputRef.current?.click();
-    } else if (importType === 'json') {
-      jsonInputRef.current?.click();
-    }
+    setShowDropdown(false);
   };
 
   const handleClear = async () => {
@@ -49,22 +119,13 @@ export default function ItemAtlasUploader() {
     clearAtlas();
   };
 
-  const getButtonText = () => {
-    if (isLoading) return '解析中...';
-    switch (importType) {
-      case 'jar':
-        return '🗂️ 加载物品';
-      case 'texture':
-        return '🖼️ 加载物品';
-      case 'json':
-        return '📄 加载物品';
-      default:
-        return '🗂️ 加载物品';
-    }
+  const toggleDropdown = () => {
+    setShowDropdown(!showDropdown);
   };
 
+  // 统一模式 - 带文本标签的下拉菜单
   return (
-    <div className="flex items-center gap-2">
+    <>
       <input
         ref={jarInputRef}
         type="file"
@@ -89,48 +150,63 @@ export default function ItemAtlasUploader() {
         onChange={handleJsonFileSelect}
         className="hidden"
       />
-      <button
-        onClick={handleClick}
-        disabled={isLoading}
-        className="px-3 py-1.5 bg-purple-600 text-white text-sm rounded hover:bg-purple-700 disabled:bg-gray-400"
-        title="选择 Mod Jar 文件来加载物品贴图"
-      >
-        {getButtonText()}
-      </button>
 
-      {/* 导入类型选择下拉框 */}
-      <select
-        value={importType}
-        onChange={(e) => setImportType(e.target.value as ImportType)}
-        disabled={isLoading}
-        className="px-2 py-1.5 text-xs bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-700 dark:text-gray-300 disabled:opacity-50"
-        title="选择导入类型"
-      >
-        <option value="jar">Jar 文件</option>
-        <option value="texture">贴图文件</option>
-        <option value="json">JSON 文件</option>
-      </select>
+      <div className="relative flex items-center gap-2">
+        <button
+          onClick={toggleDropdown}
+          disabled={isLoading}
+          className={`px-3 py-1.5 text-sm rounded flex-shrink-0 ${isLoading ? 'bg-gray-400 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700 text-white'} flex items-center gap-1`}
+          title="加载物品贴图"
+        >
+          {isLoading ? '⏳' : '🗂️'} 加载物品
+          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
 
-      {Object.keys(itemMap).length > 0 && (
-        <>
-          <span className="text-sm text-gray-600 dark:text-gray-400">
-            已加载 {Object.keys(itemMap).length} 个贴图，{Object.keys(itemNames).length} 个名称
-          </span>
-          <button
-            onClick={handleClear}
-            className="px-2 py-1.5 text-xs bg-red-600 text-white rounded hover:bg-red-700"
-            title="清除已加载的物品贴图"
-          >
-            清除
-          </button>
-        </>
-      )}
-
-      {isLoading && (
-        <span className="text-sm text-gray-600 dark:text-gray-400">
-          {progress.current} / {progress.total}
-        </span>
-      )}
-    </div>
+          {showDropdown && (
+            <>
+              <div
+                className="fixed inset-0 z-10"
+                onClick={() => setShowDropdown(false)}
+              />
+              <div className="absolute top-full right-0 mt-1 bg-white dark:bg-gray-700 rounded shadow-lg border border-gray-200 dark:border-gray-600 z-20 min-w-[160px]">
+                <button
+                  onClick={() => { jarInputRef.current?.click(); }}
+                  className="w-full px-3 py-2 text-sm text-left hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 flex items-center gap-2"
+                >
+                  📦 Jar 文件
+                </button>
+                <button
+                  onClick={() => { textureInputRef.current?.click(); }}
+                  className="w-full px-3 py-2 text-sm text-left hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 flex items-center gap-2"
+                >
+                  🖼️ 贴图文件
+                </button>
+                <button
+                  onClick={() => { jsonInputRef.current?.click(); }}
+                  className="w-full px-3 py-2 text-sm text-left hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 flex items-center gap-2"
+                >
+                  📄 JSON 文件
+                </button>
+                {Object.keys(itemMap).length > 0 && (
+                  <>
+                    <div className="border-t border-gray-200 dark:border-gray-600 my-1" />
+                    <div className="px-3 py-1.5 text-xs text-gray-600 dark:text-gray-400">
+                      已加载：{Object.keys(itemMap).length} 个贴图，{Object.keys(itemNames).length} 个名称
+                    </div>
+                    <button
+                      onClick={handleClear}
+                      className="w-full px-3 py-2 text-sm text-left hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400"
+                    >
+                      🗑️ 清除贴图
+                    </button>
+                  </>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      </>
   );
 }
