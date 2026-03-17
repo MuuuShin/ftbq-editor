@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Quest, QuestTask, QuestReward } from '../types';
 import { useItemAtlas } from '../context/ItemAtlasContext';
+import Chevron from './icons/Chevron';
 
 interface QuestEditorProps {
   quest: Quest | null;
@@ -450,7 +451,7 @@ export function QuestEditor({ quest, onClose, onSave }: QuestEditorProps) {
           onClick={() => toggleRegion('tasks')}
           className="flex items-center gap-2 w-full px-3 py-2 bg-indigo-100 dark:bg-indigo-900/50 hover:bg-indigo-200 dark:hover:bg-indigo-900 rounded transition-colors border border-indigo-300 dark:border-indigo-700"
         >
-          <span className="text-sm font-medium w-4 text-center">{expandedRegions.has('tasks') ? '▼' : '▶'}</span>
+          <span className="w-4 flex items-center justify-center"><Chevron expanded={expandedRegions.has('tasks')} className="w-4 h-4 text-gray-500" /></span>
           <span className="text-base">📋</span>
           <span className="text-sm font-semibold text-indigo-900 dark:text-indigo-200 flex-1 text-left">目标</span>
           <span className="text-xs text-indigo-600 dark:text-indigo-400">{formData.tasks?.length || 0} 项</span>
@@ -484,7 +485,7 @@ export function QuestEditor({ quest, onClose, onSave }: QuestEditorProps) {
                     className="flex items-center gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-750 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                     onClick={() => toggleItemExpanded(index)}
                   >
-                    <span className="text-sm font-medium w-4 text-center text-gray-500">{isTaskExpanded(index) ? '▼' : '▶'}</span>
+                    <span className="w-4 flex items-center justify-center"><Chevron expanded={isTaskExpanded(index)} className="w-4 h-4 text-gray-500" /></span>
                     <span className={`w-2 h-2 rounded-full ${getItemTypeColor(task.type)}`}></span>
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300 flex-1 truncate">
                       {getItemDisplayText(task)}
@@ -581,7 +582,7 @@ export function QuestEditor({ quest, onClose, onSave }: QuestEditorProps) {
           onClick={() => toggleRegion('rewards')}
           className="flex items-center gap-2 w-full px-3 py-2 bg-green-100 dark:bg-green-900/50 hover:bg-green-200 dark:hover:bg-green-900 rounded transition-colors border border-green-300 dark:border-green-700"
         >
-          <span className="text-sm font-medium w-4 text-center">{expandedRegions.has('rewards') ? '▼' : '▶'}</span>
+          <span className="w-4 flex items-center justify-center"><Chevron expanded={expandedRegions.has('rewards')} className="w-4 h-4 text-gray-500" /></span>
           <span className="text-base">🎁</span>
           <span className="text-sm font-semibold text-green-900 dark:text-green-200 flex-1 text-left">奖励</span>
           <span className="text-xs text-green-600 dark:text-green-400">{formData.rewards?.length || 0} 项</span>
@@ -615,7 +616,7 @@ export function QuestEditor({ quest, onClose, onSave }: QuestEditorProps) {
                     className="flex items-center gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-750 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                     onClick={() => toggleItemExpanded(index)}
                   >
-                    <span className="text-sm font-medium w-4 text-center text-gray-500">{isRewardExpanded(index) ? '▼' : '▶'}</span>
+                    <span className="w-4 flex items-center justify-center"><Chevron expanded={isRewardExpanded(index)} className="w-4 h-4 text-gray-500" /></span>
                     <span className={`w-2 h-2 rounded-full ${getItemTypeColor(reward.type)}`}></span>
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300 flex-1 truncate">
                       {getItemDisplayText(reward)}
@@ -711,7 +712,7 @@ export function QuestEditor({ quest, onClose, onSave }: QuestEditorProps) {
           onClick={() => toggleRegion('properties')}
           className="flex items-center gap-2 w-full px-3 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded transition-colors border border-gray-300 dark:border-gray-600"
         >
-          <span className="text-sm font-medium w-4 text-center">{expandedRegions.has('properties') ? '▼' : '▶'}</span>
+          <span className="w-4 flex items-center justify-center"><Chevron expanded={expandedRegions.has('properties')} className="w-4 h-4 text-gray-500" /></span>
           <span className="text-base">⚙️</span>
           <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex-1 text-left">属性</span>
         </button>

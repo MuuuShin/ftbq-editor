@@ -1,4 +1,7 @@
 import React, { useState, useMemo } from 'react';
+
+import Chevron from './icons/Chevron';
+
 import { ChapterCollection, ChapterGroupData, ChapterFile } from '../types';
 
 interface ChapterListProps {
@@ -205,7 +208,7 @@ export const ChapterList: React.FC<ChapterListProps> = ({
             {displayTitle}
           </div>
           {Array.isArray(chapter.data?.subtitle) && chapter.data.subtitle.length > 0 ? (
-            <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{chapter.data.subtitle[0]}</div>
+            <div className={`${isActive ? 'text-white' : 'text-gray-500 dark:text-gray-400'} text-xs truncate`}>{chapter.data.subtitle[0]}</div>
           ) : null}
         </div>
         <button
@@ -259,13 +262,12 @@ export const ChapterList: React.FC<ChapterListProps> = ({
                   className="rounded border border-gray-200 dark:border-gray-700 overflow-hidden"
                 >
                   <div
-                    className="flex justify-between items-center px-3 py-2 cursor-pointer bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                    className="flex justify-between items-center px-3 py-2 cursor-pointer select-none bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                     onClick={() => toggleItem(item.id)}
+                    onMouseDown={(e) => e.preventDefault()}
                   >
                     <div className="flex items-center flex-1 min-w-0">
-                      <span className="text-xs mr-1 text-gray-500 dark:text-gray-400">
-                        {isExpanded ? '▼' : '▶'}
-                      </span>
+                      <Chevron expanded={isExpanded} className="mr-2" />
                       <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">
                         {item.collection?.sourceType === 'file' ? '📄' : '📁'} {item.title}
                       </span>
@@ -291,13 +293,12 @@ export const ChapterList: React.FC<ChapterListProps> = ({
                 className="rounded border border-gray-200 dark:border-gray-700 overflow-hidden"
               >
                 <div
-                  className="flex justify-between items-center px-3 py-2 cursor-pointer bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                  className="flex justify-between items-center px-3 py-2 cursor-pointer select-none bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                   onClick={() => toggleItem(item.id)}
+                  onMouseDown={(e) => e.preventDefault()}
                 >
                   <div className="flex items-center flex-1 min-w-0">
-                    <span className="text-xs mr-1 text-gray-500 dark:text-gray-400">
-                      {isExpanded ? '▼' : '▶'}
-                    </span>
+                    <Chevron expanded={isExpanded} className="mr-2" />
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">
                       📁 {item.title}
                     </span>
@@ -317,13 +318,12 @@ export const ChapterList: React.FC<ChapterListProps> = ({
                 className="rounded border border-gray-200 dark:border-gray-700 overflow-hidden ml-4"
               >
                 <div
-                  className="flex justify-between items-center px-3 py-2 cursor-pointer bg-gray-50 dark:bg-gray-750 hover:bg-gray-100 dark:hover:bg-gray-650 transition-colors"
+                  className="flex justify-between items-center px-3 py-2 cursor-pointer select-none bg-gray-50 dark:bg-gray-750 hover:bg-gray-100 dark:hover:bg-gray-650 transition-colors"
                   onClick={() => toggleItem(item.id)}
+                  onMouseDown={(e) => e.preventDefault()}
                 >
                   <div className="flex items-center flex-1 min-w-0">
-                    <span className="text-xs mr-1 text-gray-500 dark:text-gray-400">
-                      {isExpanded ? '▼' : '▶'}
-                    </span>
+                    <Chevron expanded={isExpanded} className="mr-2" />
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">
                       {item.title}
                     </span>
