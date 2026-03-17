@@ -1,5 +1,8 @@
 import JSZip from 'jszip';
 
+// 支持的动图帧尺寸（像素），便于维护和扩展
+export const SUPPORTED_FRAME_SIZES = [16, 32, 64, 128];
+
 /**
  * 物品贴图映射
  * key: 物品 ID (如 "gtceu:epoxy_bucket")
@@ -361,7 +364,7 @@ export function detectAnimationFrameCount(
 ): AnimationInfo {
   // 推断帧尺寸
   if (!frameSize) {
-    if (width === 16 || width === 32) {
+    if (SUPPORTED_FRAME_SIZES.includes(width)) {
       frameSize = width;
     } else {
       // 非标准尺寸，不视为动图

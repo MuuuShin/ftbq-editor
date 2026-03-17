@@ -66,6 +66,8 @@ export function extractQuests(chapterData: any): any[] {
   if (!chapterData || !chapterData.quests) {
     return [];
   }
+
+  // 不修改原始数据：只返回 quests 数组，章节级默认形状应保存在 ChapterFile.defaultQuestShape
   return chapterData.quests;
 }
 

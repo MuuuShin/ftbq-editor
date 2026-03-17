@@ -58,6 +58,8 @@ interface QuestEditorCanvasProps {
   quests: Quest[];
   onQuestSelect: (quest: Quest | null) => void;
   onPositionChange: (questId: string, x: number, y: number) => void;
+  // chapter-level default shape to use when quest.shape is missing
+  chapterDefaultShape?: string;
 }
 
 /**
@@ -69,6 +71,7 @@ function QuestEditorCanvas({
                              quests,
                              onQuestSelect,
                              onPositionChange,
+                             chapterDefaultShape,
                            }: QuestEditorCanvasProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const {itemMap} = useItemAtlas();
@@ -161,27 +164,30 @@ function QuestEditorCanvas({
   }, [itemMap]);
 
   // 初始化节点 - 使用中心点坐标（position 表示元素中心）
-  const initialNodes: Node[] = useMemo(() => quests.map((quest) => {
-    const size = quest.size || 1;
-    const nodeDiameter = size * 32;
-    const nodeRadius = nodeDiameter / 2;
-    const iconUrl = getIconUrl(quest.icon);
-    return {
-      id: quest.id,
-      type: 'questNode',
-      position: {
-        // React Flow expects position = top-left; store top-left = center_px - radius
-        x: (quest.x || 0) * GAME_TO_PIXEL_SCALE - nodeRadius,
-        y: (quest.y || 0) * GAME_TO_PIXEL_SCALE - nodeRadius,
-      },
-      data: {
-        quest,
-        label: quest.title,
-        icon: iconUrl,
-        nodeRadius,
-      },
-    };
-  }), [quests, itemMap, getIconUrl]);
+  const initialNodes: Node[] = useMemo(() => quests.map(
+    (quest) => {
+      const size = quest.size || 1;
+      const nodeDiameter = size * 32;
+      const nodeRadius = nodeDiameter / 2;
+      const iconUrl = getIconUrl(quest.icon);
+      return {
+        id: quest.id,
+        type: 'questNode',
+        position: {
+          // React Flow expects position = top-left; store top-left = center_px - radius
+          x: (quest.x || 0) * GAME_TO_PIXEL_SCALE - nodeRadius,
+          y: (quest.y || 0) * GAME_TO_PIXEL_SCALE - nodeRadius,
+        },
+        data: {
+          quest,
+          label: quest.title,
+          icon: iconUrl,
+          nodeRadius,
+          // provide chapter-level default shape (non-destructive fallback)
+          chapterDefaultShape,
+        },
+      };
+    }), [quests, itemMap, getIconUrl, chapterDefaultShape]);
 
   // 初始化边 (依赖关系) - 直接传入节点中心坐标
   const initialEdges: Edge[] = useMemo(() => {
@@ -253,6 +259,7 @@ function QuestEditorCanvas({
           label: quest.title,
           icon: iconUrl,
           nodeRadius,
+          chapterDefaultShape,
         },
       };
     });
@@ -307,7 +314,7 @@ function QuestEditorCanvas({
         fitView(FIT_VIEW_OPTIONS);
       });
     }
-  }, [quests, setNodes, setEdges, getIconUrl, fitView]);
+  }, [quests, setNodes, setEdges, getIconUrl, fitView, chapterDefaultShape]);
 
   // 处理节点拖动结束 - node.position 现在为中心点（像素）
   const handleNodeDragStop = useCallback(
@@ -460,37 +467,30 @@ function QuestEditorCanvas({
     [onQuestSelect]
   );
 
-  // 处理节点鼠标进入
-  const handleNodeMouseEnter = useCallback(
-    (_: React.MouseEvent, node: Node) => {
-      setHoveredNodeId(node.id);
-    },
-    []
-  );
+  // 处理节点悬停 - 用于在边或其他 UI 中显示隐藏的连线
+  const handleNodeMouseEnter = useCallback((_: React.MouseEvent, node: Node) => {
+    setHoveredNodeId(node.id);
+  }, []);
 
-  // 处理节点鼠标离开
-  const handleNodeMouseLeave = useCallback(
-    () => {
-      setHoveredNodeId(null);
-    },
-    []
-  );
+  const handleNodeMouseLeave = useCallback(() => {
+    setHoveredNodeId(null);
+  }, []);
 
-  // 处理连线
-  const onConnect = useCallback(
-    (params: Connection) => {
-      setEdges((eds) => addEdge({
-        ...params,
-        type: 'custom',
-        markerEnd: 'edge-arrow',
-        style: {stroke: '#6366f1', strokeWidth: 2},
-      }, eds));
-    },
-    [setEdges]
-  );
+  // 处理连线（在画布上拖出连接时）
+  const onConnect = useCallback((params: Connection) => {
+    setEdges((eds) => addEdge({
+      ...params,
+      type: 'custom',
+      markerEnd: 'edge-arrow',
+      style: {stroke: '#6366f1', strokeWidth: 2},
+    }, eds));
+  }, [setEdges]);
 
   return (
-    <div ref={reactFlowWrapper} className="w-full h-full">
+    <div
+      className="reactflow-wrapper w-full h-full"
+      ref={reactFlowWrapper}
+    >
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -505,17 +505,14 @@ function QuestEditorCanvas({
         onMouseLeave={handleMouseLeave}
         nodeTypes={extendedNodeTypes}
         edgeTypes={edgeTypes}
-        // 我们使用自定义的拖动吸附逻辑（中心点对齐），因此禁用 React Flow 内置 snapToGrid
+        // 使用自定义的拖动吸附逻辑（中心点对齐），因此禁用 React Flow 内置 snapToGrid
         snapToGrid={false}
         snapGrid={SNAP_GRID}
         minZoom={0.1}
         maxZoom={4}
-        defaultEdgeOptions={{
-          type: 'custom',
-          markerEnd: 'edge-arrow',
-        }}
-        onNodeDrag={handleNodeDrag}
+        defaultEdgeOptions={{type: 'custom', markerEnd: 'edge-arrow'}}
         connectionLineType={ConnectionLineType.Straight}
+        onNodeDrag={handleNodeDrag}
         className="bg-gray-400 dark:bg-gray-700"
       >
         <Controls
@@ -527,7 +524,6 @@ function QuestEditorCanvas({
           variant={BackgroundVariant.Dots}
           gap={16}
           size={1}
-          // restored original light-dot color
           color="#4b5563"
         />
 

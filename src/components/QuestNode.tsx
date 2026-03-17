@@ -24,7 +24,8 @@ function QuestNode({ data, id, selected }: QuestNodeProps): JSX.Element {
   const { itemMap, itemNames } = useItemAtlas();
   const [isHovered, setIsHovered] = useState(false);
 
-  const shape = quest.shape || 'circle';
+  // shape preference: quest.shape > chapter default shape > 'circle'
+  const shape = (quest.shape as string) || data?.chapterDefaultShape || 'circle';
   // shape assets: background, mask(shape), outline
   const { background: backgroundUrl, mask: shapeMaskUrl, outline: outlineUrl } = getShapeAssets(shape);
   const size = quest.size || 1;

@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useMemo } from 'react';
+import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import { Quest, ChapterGroupData, QuestBookData, ChapterFile, ChapterCollection } from './types';
 import { readSNBTFile, exportSNBTFile, extractQuests, importFTBQFolder, type FolderImportResult } from './utils/snbt';
 import { QuestEditorCanvasWrapper } from './components/QuestEditorCanvas';
@@ -163,6 +163,7 @@ function App() {
           file,
           data,
           quests: questList,
+          defaultQuestShape: data?.default_quest_shape,
           group: data?.group,
           order_index: data?.order_index,
         });
@@ -255,6 +256,7 @@ function App() {
           file: chapter.file,
           data: chapter.data,
           quests: chapter.quests,
+          defaultQuestShape: chapter.data?.default_quest_shape,
           group: chapter.data?.group,
           order_index: chapter.data?.order_index,
         }));
@@ -468,6 +470,18 @@ function App() {
     setShowChapterList(!showChapterList);
   };
 
+  // 在客户端运行时为文件夹输入节点设置非标准的 webkitdirectory 属性
+  useEffect(() => {
+    const el = folderInputRef.current as HTMLInputElement | null;
+    if (el && !el.hasAttribute('webkitdirectory')) {
+      try {
+        el.setAttribute('webkitdirectory', '');
+      } catch (e) {
+        // 忽略：在不支持或受限环境中可能抛出
+      }
+    }
+  }, []);
+
   return (
     <ItemAtlasProvider>
       <ToastContainer toasts={toasts} onRemove={removeToast} />
@@ -491,14 +505,12 @@ function App() {
           className="hidden"
         />
 
-        {/* 隐藏的文件夹输入 */}
+        {/* 隐藏的文件夹输入 - 注意：webkitdirectory 是非标准属性，会在运行时通过 DOM setAttribute 设置以避免 TSX 类型警告 */}
         <input
           ref={folderInputRef}
           type="file"
           accept=".snbt,.txt"
           multiple
-          // @ts-expect-error webkitDirectory is a non-standard but widely supported attribute
-          webkitDirectory=""
           onChange={handleFolderImport}
           className="hidden"
         />
@@ -702,6 +714,7 @@ function App() {
                 quests={quests}
                 onQuestSelect={handleQuestSelect}
                 onPositionChange={handlePositionChange}
+                chapterDefaultShape={activeChapter?.defaultQuestShape}
               />
             </div>
           ) : (

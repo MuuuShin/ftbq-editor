@@ -94,6 +94,8 @@ export interface ChapterFile {
   quests: Quest[];
   group?: string;
   order_index?: number;
+  // 章节级别的默认任务形状（非破坏性存储）
+  defaultQuestShape?: string;
 }
 
 // 章节组（来自文件夹导入）

@@ -187,6 +187,9 @@ export const ChapterList: React.FC<ChapterListProps> = ({
     const globalIndex = chapterGlobalIndexMap.get(`${collectionId}-${chapter.name}`) ?? -1;
     const isActive = globalIndex === activeChapterIndex;
 
+    // 统一章节显示标题，避免重复逻辑
+    const displayTitle = chapter.data?.title || chapter.name.replace(/\.snbt$/, '');
+
     return (
       <div
         key={`${collectionId}-${chapter.name}`}
@@ -197,9 +200,14 @@ export const ChapterList: React.FC<ChapterListProps> = ({
         }`}
         onClick={() => onChapterSelect(globalIndex)}
       >
-        <span className="text-sm truncate flex-1" title={chapter.name}>
-          {chapter.name.replace(/\.snbt$/, '')}
-        </span>
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-medium truncate" title={displayTitle}>
+            {displayTitle}
+          </div>
+          {Array.isArray(chapter.data?.subtitle) && chapter.data.subtitle.length > 0 ? (
+            <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{chapter.data.subtitle[0]}</div>
+          ) : null}
+        </div>
         <button
           onClick={(e) => onChapterDelete(globalIndex, e)}
           className={`ml-2 p-1 rounded transition-opacity ${
@@ -237,7 +245,7 @@ export const ChapterList: React.FC<ChapterListProps> = ({
       {/* 分组列表 */}
       <div className="p-2 space-y-2 flex-1 overflow-y-auto">
         {groupedData.map((item) => {
-          const isExpanded = expandedItems[item.id] !== false;
+          const isExpanded = expandedItems[item.id];
 
           // 文件导入或没有分组的集合：直接显示章节
           if (item.type === 'collection') {
@@ -300,7 +308,7 @@ export const ChapterList: React.FC<ChapterListProps> = ({
           } else {
             // 分组（文件夹导入的子分组）
             // 如果是第一个分组或父集合刚展开，显示分组
-            const parentExpanded = item.parentId ? expandedItems[item.parentId] !== false : true;
+            const parentExpanded = item.parentId ? expandedItems[item.parentId] : true;
             if (!parentExpanded) return null;
 
             return (

@@ -32,7 +32,7 @@ export default function PixelImage({
   width,
   height,
   className = '',
-  fps = 15,
+  fps = 10,
   onError,
   onLoad,
 }: PixelImageProps) {
